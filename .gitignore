@@ -4,6 +4,7 @@
 [Bb]inaries/
 
 # mstest test results
+Test
 TestResults
 
 # Ignore diagrams
