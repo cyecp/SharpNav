@@ -41,6 +41,20 @@ namespace SharpNav.Pathfinding
 		public int TileBits { get { return tileBits; } }
 		public int SaltBits { get { return saltBits; } }
 
+        public bool HasSameConfigAs(NavPolyIdManager otherManager)
+        {
+            if (PolyBits != otherManager.PolyBits) {
+                return false;
+            }
+            if (TileBits != otherManager.TileBits) {
+                return false;
+            }
+            if (SaltBits != otherManager.SaltBits) {
+                return false;
+            }
+            return true;
+        }
+
 		public NavPolyId Encode(int salt, int tileIndex, int polyIndex)
 		{
 			NavPolyId id;
@@ -68,10 +82,10 @@ namespace SharpNav.Pathfinding
 
 		public void SetPolyIndex(ref NavPolyId polyBase, int newPoly, out NavPolyId result)
 		{
-			newPoly &= polyMask;
+            newPoly &= polyMask;
 
 			//first clear poly then OR with new poly
-			result = new NavPolyId((polyBase.Id & ~polyMask) | newPoly);
+			result = new NavPolyId((polyBase.Id & ~newPoly) | newPoly);
 		}
 
 		/// <summary>

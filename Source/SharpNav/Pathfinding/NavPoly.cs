@@ -60,5 +60,7 @@ namespace SharpNav.Pathfinding
 		/// Gets or sets the AreaId
 		/// </summary>
 		public Area Area { get; set; }
+
+        public int RegionIndex { get; set; }
 	}
 }

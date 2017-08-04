@@ -30,6 +30,9 @@ namespace SharpNav
 		private int maxTiles;
 		private int maxPolys;
 
+        private static int kMaxTileBits = 20;
+        private static int kMaxPolyBits = 1000;
+
 		//TODO if we want to be able to remove tiles, turn tileList into a dict of <int, MeshTile>
 		//     and add an int that always increases so that we don't have bad refs when somemthing
 		//     is removed from tileList and all the indices after it change.
@@ -41,7 +44,7 @@ namespace SharpNav
 		private Dictionary<NavTile, NavPolyId> tileRefs;
 		private List<NavTile> tileList;
 
-		private NavPolyIdManager idManager;
+		internal NavPolyIdManager idManager;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="TiledNavMesh"/> class.
@@ -54,15 +57,15 @@ namespace SharpNav
 			this.tileHeight = data.Header.Bounds.Max.Z - data.Header.Bounds.Min.Z;
 			this.maxTiles = 1;
 			this.maxPolys = data.Header.PolyCount;
-
+            
 			//init tiles
 			tileSet = new Dictionary<Vector2i, List<NavTile>>();
 			tileRefs = new Dictionary<NavTile, NavPolyId>();
 			tileList = new List<NavTile>();
 
 			//init ID generator values
-			int tileBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(maxTiles));
-			int polyBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(maxPolys));
+			int tileBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxTileBits));
+			int polyBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxPolyBits));
 
 			//only allow 31 salt bits, since salt mask is calculated using 32-bit int and it will overflow
 			int saltBits = Math.Min(31, 32 - tileBits - polyBits);
@@ -88,10 +91,10 @@ namespace SharpNav
 			tileSet = new Dictionary<Vector2i, List<NavTile>>();
 			tileRefs = new Dictionary<NavTile, NavPolyId>();
 			tileList = new List<NavTile>();
-
+            
 			//init ID generator values
-			int tileBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(maxTiles));
-			int polyBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(maxPolys));
+			int tileBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxTileBits));
+			int polyBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxPolyBits));
 
 			//only allow 31 salt bits, since salt mask is calculated using 32-bit int and it will overflow
 			int saltBits = Math.Min(31, 32 - tileBits - polyBits);
@@ -185,8 +188,11 @@ namespace SharpNav
 
 		public void AddTileAt(NavTile tile, NavPolyId id)
 		{
+            if (!idManager.HasSameConfigAs(tile.IdManager)) {
+                throw new ArgumentException("Added tile has a different id manager. This likely means it came from another nav mesh");
+            }
+            
 			//TODO more error checking, what if tile already exists?
-
 			Vector2i loc = tile.Location;
 			List<NavTile> locList;
 			if (!tileSet.TryGetValue(loc, out locList))

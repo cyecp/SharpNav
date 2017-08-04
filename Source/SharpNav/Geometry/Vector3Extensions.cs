@@ -10,6 +10,8 @@ using Vector3 = Microsoft.Xna.Framework.Vector3;
 using Vector3 = OpenTK.Vector3;
 #elif SHARPDX
 using Vector3 = SharpDX.Vector3;
+#elif UNITY3D
+using Vector3 = UnityEngine.Vector3;
 #endif
 
 namespace SharpNav.Geometry
@@ -69,7 +71,11 @@ namespace SharpNav.Geometry
 #elif UNITY3D
 			result = Vector3.Min(left, right);
 #else
-			Vector3.Min(ref left, ref right, out result);
+			result = new Vector3(
+                Math.Min(left.X, right.X), 
+                Math.Min(left.Y, right.Y), 
+                Math.Min(left.Z, right.Z)
+            );
 #endif
 		}
 
@@ -86,7 +92,11 @@ namespace SharpNav.Geometry
 #elif UNITY3D
 			result = Vector3.Min(left, right);
 #else
-			Vector3.Max(ref left, ref right, out result);
+            result = new Vector3(
+                Math.Max(left.X, right.X), 
+                Math.Max(left.Y, right.Y), 
+                Math.Max(left.Z, right.Z)
+            );
 #endif
 		}
 

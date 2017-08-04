@@ -53,6 +53,10 @@ namespace SharpNav.Crowds
 		private ProximityGrid<Agent> grid;
 
 		private Vector3 ext;
+        public Vector3 Ext {
+            get { return ext; }
+            set { ext = value; }
+        }
 
 		private float maxAgentRadius;
 

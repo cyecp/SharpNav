@@ -232,6 +232,8 @@ namespace SharpNav
 				navPolys[i].PolyType = NavPolyType.Ground;
 				navPolys[i].Verts = new int[nvp];
 				navPolys[i].Neis = new int[nvp];
+                navPolys[i].RegionIndex = polyMesh.Polys[i].RegionId.Id;
+
 				for (int j = 0; j < nvp; j++)
 				{
 					if (polyMesh.Polys[i].Vertices[j] == PolyMesh.NullId)
@@ -276,8 +278,10 @@ namespace SharpNav
 					navPolys[offMeshPolyBase + n].Verts[0] = offMeshVertsBase + (n * 2 + 0);
 					navPolys[offMeshPolyBase + n].Verts[1] = offMeshVertsBase + (n * 2 + 1);
 					navPolys[offMeshPolyBase + n].Tag = offMeshCons[i].Flags;
-					navPolys[offMeshPolyBase + n].Area = polyMesh.Polys[offMeshCons[i].Poly].Area; //HACK is this correct?
 					navPolys[offMeshPolyBase + n].PolyType = NavPolyType.OffMeshConnection;
+                    // TODO: HACK are these correct?
+					navPolys[offMeshPolyBase + n].Area = polyMesh.Polys[offMeshCons[i].Poly].Area;
+                    navPolys[offMeshPolyBase + n].RegionIndex = polyMesh.Polys[offMeshCons[i].Poly].RegionId.Id;
 					n++;
 				}
 			}

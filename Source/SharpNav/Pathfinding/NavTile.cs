@@ -28,6 +28,14 @@ namespace SharpNav.Pathfinding
 		private NavPolyIdManager idManager;
 		private NavPolyId baseRef;
 
+        public NavPolyIdManager IdManager
+		{
+			get
+			{
+				return idManager;
+			}
+		}
+
 		public NavTile(int x, int y, int layer, NavPolyIdManager manager, NavPolyId baseRef)
 			:this(new Vector2i(x, y), layer, manager, baseRef)
 		{
