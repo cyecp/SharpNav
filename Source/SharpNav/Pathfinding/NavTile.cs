@@ -140,6 +140,12 @@ namespace SharpNav.Pathfinding
 			}
 		}
 
+        public NavPolyId GetPolyReference(int index) {
+            NavPolyId id;
+            idManager.SetPolyIndex(ref baseRef, index, out id);
+            return id;
+        }
+
 		/// <summary>
 		/// Begin creating off-mesh links between the tile polygons.
 		/// </summary>
@@ -337,14 +343,12 @@ namespace SharpNav.Pathfinding
 		/// <param name="conarea">Resulting Connection area</param>
 		public void FindConnectingPolys(Vector3 va, Vector3 vb, BoundarySide side, List<NavPolyId> con, List<float> conarea)
 		{
-			Vector2 amin = Vector2.Zero;
-			Vector2 amax = Vector2.Zero;
-			CalcSlabEndPoints(va, vb, amin, amax, side);
+			Vector2 amin, amax;
+			CalcSlabEndPoints(va, vb, out amin, out amax, side);
 			float apos = GetSlabCoord(va, side);
 
 			//Remove links pointing to 'side' and compact the links array
-			Vector2 bmin = Vector2.Zero;
-			Vector2 bmax = Vector2.Zero;
+			Vector2 bmin, bmax;
 
 			//Iterate through all the tile's polygons
 			for (int i = 0; i < PolyCount; i++)
@@ -368,7 +372,7 @@ namespace SharpNav.Pathfinding
 						continue;
 
 					//Check if the segments touch
-					CalcSlabEndPoints(vc, vd, bmin, bmax, side);
+					CalcSlabEndPoints(vc, vd, out bmin, out bmax, side);
 
 					//Skip if slabs don't overlap
 					if (!OverlapSlabs(amin, amax, bmin, bmax, 0.01f, WalkableClimb))
@@ -534,8 +538,11 @@ namespace SharpNav.Pathfinding
 		/// <param name="bmin">Minimum bounds</param>
 		/// <param name="bmax">Maximum bounds</param>
 		/// <param name="side">The side</param>
-		public static void CalcSlabEndPoints(Vector3 va, Vector3 vb, Vector2 bmin, Vector2 bmax, BoundarySide side)
+		public static void CalcSlabEndPoints(Vector3 va, Vector3 vb, out Vector2 bmin, out Vector2 bmax, BoundarySide side)
 		{
+            bmin = Vector2.Zero;
+            bmax = Vector2.Zero;
+
 			if (side == BoundarySide.PlusX || side == BoundarySide.MinusX)
 			{
 				if (va.Z < vb.Z)
@@ -641,7 +648,12 @@ namespace SharpNav.Pathfinding
 		/// <param name="poly">The current polygon.</param>
 		/// <param name="pos">The current position</param>
 		/// <param name="closest">Reference to the closest point</param>
-		public void ClosestPointOnPoly(NavPoly poly, Vector3 pos, ref Vector3 closest)
+		public void ClosestPointOnPoly(NavPoly poly, Vector3 pos, ref Vector3 closest) {
+            bool posOverPoly;
+            ClosestPointOnPoly(poly, pos, ref closest, out posOverPoly);
+        }
+
+		public void ClosestPointOnPoly(NavPoly poly, Vector3 pos, ref Vector3 closest, out bool posOverPoly)
 		{
 			int indexPoly = 0;
 			for (int i = 0; i < Polys.Length; i++)
@@ -653,7 +665,7 @@ namespace SharpNav.Pathfinding
 				}
 			}
 
-			ClosestPointOnPoly(indexPoly, pos, ref closest);
+			ClosestPointOnPoly(indexPoly, pos, ref closest, out posOverPoly);
 		}
 
 		/// <summary>
@@ -664,6 +676,13 @@ namespace SharpNav.Pathfinding
 		/// <param name="closest">Reference to the closest point</param>
 		public void ClosestPointOnPoly(int indexPoly, Vector3 pos, ref Vector3 closest)
 		{
+            bool insidePoly;
+            ClosestPointOnPoly(indexPoly, pos, ref closest, out insidePoly);
+        }
+
+		public void ClosestPointOnPoly(int indexPoly, Vector3 pos, ref Vector3 closest, out bool insidePoly)
+		{
+		    insidePoly = false;
 			NavPoly poly = Polys[indexPoly];
 
 			//Off-mesh connections don't have detail polygons
@@ -673,7 +692,7 @@ namespace SharpNav.Pathfinding
 				return;
 			}
 
-			ClosestPointOnPolyBoundary(poly, pos, out closest);
+			ClosestPointOnPolyBoundary(poly, pos, out closest, out insidePoly);
 
 			float h;
 			if (ClosestHeight(indexPoly, pos, out h))
@@ -686,8 +705,10 @@ namespace SharpNav.Pathfinding
 		/// <param name="poly">The current polygon.</param>
 		/// <param name="pos">The current position</param>
 		/// <param name="closest">Reference to the closest point</param>
-		public void ClosestPointOnPolyBoundary(NavPoly poly, Vector3 pos, out Vector3 closest)
+		public void ClosestPointOnPolyBoundary(NavPoly poly, Vector3 pos, out Vector3 closest, out bool insidePoly)
 		{
+            insidePoly = false;
+
 			//Clamp point to be inside the polygon
 			Vector3[] verts = new Vector3[PathfindingCommon.VERTS_PER_POLYGON];
 			float[] edgeDistance = new float[PathfindingCommon.VERTS_PER_POLYGON];
@@ -701,6 +722,7 @@ namespace SharpNav.Pathfinding
 			{
 				//Point is inside the polygon
 				closest = pos;
+			    insidePoly = false;
 			}
 			else
 			{
@@ -732,6 +754,11 @@ namespace SharpNav.Pathfinding
 		/// <returns>True, if a height is found. False, if otherwise.</returns>
 		public bool ClosestHeight(int indexPoly, Vector3 pos, out float h)
 		{
+            if (DetailMeshes == null || DetailVerts == null || DetailTris == null) {
+                h = 0;
+                return false;
+            }
+
 			NavPoly poly = Polys[indexPoly];
 			PolyMeshDetail.MeshData pd = DetailMeshes[indexPoly];
 

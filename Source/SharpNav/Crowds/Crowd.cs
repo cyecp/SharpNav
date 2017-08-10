@@ -63,6 +63,9 @@ namespace SharpNav.Crowds
 		private int velocitySampleCount;
 
 		private NavMeshQuery navQuery;
+        public NavMeshQuery NavQuery {
+            get { return navQuery; }
+        }
 		private NavQueryFilter navQueryFilter;
 
 		/// <summary>

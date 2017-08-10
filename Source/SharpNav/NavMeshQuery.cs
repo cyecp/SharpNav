@@ -2047,20 +2047,8 @@ namespace SharpNav
 		/// <returns>True, if point found. False, if otherwise.</returns>
 		public bool ClosestPointOnPoly(NavPolyId reference, Vector3 pos, ref Vector3 closest)
 		{
-			if (nav == null)
-				return false;
-
-			NavTile tile;
-			NavPoly poly;
-
-			if (nav.TryGetTileAndPolyByRef(reference, out tile, out poly) == false)
-				return false;
-
-			if (tile == null)
-				return false;
-
-			tile.ClosestPointOnPoly(poly, pos, ref closest);
-			return true;
+            bool insidePoly;
+            return ClosestPointOnPoly(reference, pos, out closest, out insidePoly);
 		}
 
 		/// <summary>
@@ -2071,104 +2059,25 @@ namespace SharpNav
 		/// <param name="closest">Resulting closest position</param>
 		/// <param name="posOverPoly">Determines whether the position can be found on the polygon</param>
 		/// <returns>True, if the closest point is found. False, if otherwise.</returns>
-		public bool ClosestPointOnPoly(NavPolyId reference, Vector3 pos, out Vector3 closest, out bool posOverPoly)
+		public bool ClosestPointOnPoly(NavPolyId reference, Vector3 pos, out Vector3 closest, out bool insidePoly)
 		{
-			posOverPoly = false;
-			closest = Vector3.Zero;
+		    insidePoly = false;
+            closest = Vector3.Zero;
 
-			NavTile tile;
-			NavPoly poly;
-			if (!nav.TryGetTileAndPolyByRef(reference, out tile, out poly))
-				return false;
-			if (tile == null)
-				return false;
+		    if (nav == null)
+		        return false;
 
-			if (poly.PolyType == NavPolyType.OffMeshConnection)
-			{
-				Vector3 v0 = tile.Verts[poly.Verts[0]];
-				Vector3 v1 = tile.Verts[poly.Verts[1]];
-				float d0 = (pos - v0).Length();
-				float d1 = (pos - v1).Length();
-				float u = d0 / (d0 + d1);
-				closest = Vector3.Lerp(v0, v1, u);
-				return true;
-			}
+		    NavTile tile;
+		    NavPoly poly;
 
-			int indexPoly = 0;
-			for (int i = 0; i < tile.Polys.Length; i++)
-			{
-				if (tile.Polys[i] == poly)
-				{
-					indexPoly = i;
-					break;
-				}
-			}
+		    if (nav.TryGetTileAndPolyByRef(reference, out tile, out poly) == false)
+		        return false;
 
-			PolyMeshDetail.MeshData pd = tile.DetailMeshes[indexPoly];
+		    if (tile == null)
+		        return false;
 
-			//Clamp point to be inside the polygon
-			Vector3[] verts = new Vector3[PathfindingCommon.VERTS_PER_POLYGON];
-			float[] edgeDistance = new float[PathfindingCommon.VERTS_PER_POLYGON];
-			float[] edgeT = new float[PathfindingCommon.VERTS_PER_POLYGON];
-			int numPolyVerts = poly.VertCount;
-			for (int i = 0; i < numPolyVerts; i++)
-				verts[i] = tile.Verts[poly.Verts[i]];
-
-			closest = pos;
-			if (!Distance.PointToPolygonEdgeSquared(pos, verts, numPolyVerts, edgeDistance, edgeT))
-			{
-				//Point is outside the polygon
-				//Clamp to nearest edge
-				float minDistance = float.MaxValue;
-				int minIndex = -1;
-				for (int i = 0; i < numPolyVerts; i++)
-				{
-					if (edgeDistance[i] < minDistance)
-					{
-						minDistance = edgeDistance[i];
-						minIndex = i;
-					}
-				}
-
-				Vector3 va = verts[minIndex];
-				Vector3 vb = verts[(minIndex + 1) % numPolyVerts];
-				closest = Vector3.Lerp(va, vb, edgeT[minIndex]);
-			}
-			else
-			{
-				posOverPoly = false;
-			}
-
-			//find height at the location
-			for (int j = 0; j < tile.DetailMeshes[indexPoly].TriangleCount; j++)
-			{
-				PolyMeshDetail.TriangleData t = tile.DetailTris[pd.TriangleIndex + j];
-				Vector3 va, vb, vc;
-
-				if (t.VertexHash0 < poly.VertCount)
-					va = tile.Verts[poly.Verts[t.VertexHash0]];
-				else
-					va = tile.DetailVerts[pd.VertexIndex + (t.VertexHash0 - poly.VertCount)];
-
-				if (t.VertexHash1 < poly.VertCount)
-					vb = tile.Verts[poly.Verts[t.VertexHash1]];
-				else
-					vb = tile.DetailVerts[pd.VertexIndex + (t.VertexHash1 - poly.VertCount)];
-
-				if (t.VertexHash2 < poly.VertCount)
-					vc = tile.Verts[poly.Verts[t.VertexHash2]];
-				else
-					vc = tile.DetailVerts[pd.VertexIndex + (t.VertexHash2 - poly.VertCount)];
-
-				float h;
-				if (Distance.PointToTriangle(pos, va, vb, vc, out h))
-				{
-					closest.Y = h;
-					break;
-				}
-			}
-
-			return true;
+		    tile.ClosestPointOnPoly(poly, pos, ref closest, out insidePoly);
+		    return true;
 		}
 
 		/// <summary>
@@ -2180,12 +2089,20 @@ namespace SharpNav
 		/// <returns>True, if the closest point is found. False, if otherwise.</returns>
 		public bool ClosestPointOnPolyBoundary(NavPolyId reference, Vector3 pos, ref Vector3 closest)
 		{
+            bool insidePoly;
+            return ClosestPointOnPolyBoundary(reference, pos, ref closest, out insidePoly);
+        }
+
+		public bool ClosestPointOnPolyBoundary(NavPolyId reference, Vector3 pos, ref Vector3 closest, out bool insidePoly)
+		{
+            insidePoly = false;
+
 			NavTile tile;
 			NavPoly poly;
 			if (nav.TryGetTileAndPolyByRef(reference, out tile, out poly) == false)
 				return false;
-
-			tile.ClosestPointOnPolyBoundary(poly, pos, out closest);
+            
+			tile.ClosestPointOnPolyBoundary(poly, pos, out closest, out insidePoly);
 			return true;
 		}
 
@@ -2335,14 +2252,14 @@ namespace SharpNav
 			{
 				NavPolyId reference = polys[i];
 				Vector3 closestPtPoly;
-				bool posOverPoly;
-				ClosestPointOnPoly(reference, center, out closestPtPoly, out posOverPoly);
+				bool insidePoly;
+				ClosestPointOnPoly(reference, center, out closestPtPoly, out insidePoly);
 
 				// If a point is directly over a polygon and closer than
 				// climb height, favor that instead of straight line nearest point.
 				Vector3 diff = center - closestPtPoly;
 				float d = 0;
-				if (posOverPoly)
+				if (insidePoly)
 				{
 					NavTile tile;
 					NavPoly poly;
