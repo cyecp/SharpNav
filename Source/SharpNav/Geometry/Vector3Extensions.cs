@@ -126,6 +126,13 @@ namespace SharpNav.Geometry
 			dist = (float)Math.Sqrt(dx * dx + dz * dz);
 		}
 
+	    internal static float DistanceSqr2D(Vector3 a, Vector3 b)
+	    {
+	        float dx = b.X - a.X;
+	        float dz = b.Z - a.Z;
+	        return (dx * dx + dz * dz);
+	    }
+
 		/// <summary>
 		/// Calculates the dot product of two vectors projected onto the XZ plane.
 		/// </summary>
@@ -200,8 +207,8 @@ namespace SharpNav.Geometry
 
 		internal static bool AlmostEqual(ref Vector3 a, ref Vector3 b)
 		{
-			float threshold = (1.0f / 16384.0f);
-			return AlmostEqual(ref a, ref b, threshold);
+			const float kThreshold = (1.0f / 16384.0f);
+			return AlmostEqual(ref a, ref b, kThreshold);
 		}
 
 		internal static bool AlmostEqual(ref Vector3 a, ref Vector3 b, float threshold)

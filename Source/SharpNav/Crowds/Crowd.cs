@@ -176,14 +176,13 @@ namespace SharpNav.Crowds
 
 			//find nearest position on the navmesh and place the agent there
 			NavPoint nearest;
-			navQuery.FindNearestPoly(ref pos, ref ext, out nearest);
-			/*if (status == false)
-			{
-				nearest = pos;
-				reference = 0;
-			}*/
+			if (!navQuery.FindNearestPoly(ref pos, ref ext, out nearest)) {
+                nearest = new NavPoint();
+                nearest.Position = pos;
+                nearest.Polygon = NavPolyId.Null;
+            }
 
-			agents[idx].Reset(nearest.Polygon, nearest.Position);
+            agents[idx].Reset(nearest.Polygon, nearest.Position);
 			agents[idx].IsActive = true;
 
 			return idx;

@@ -2236,7 +2236,7 @@ namespace SharpNav
 		/// <param name="center">Center.</param>
 		/// <param name="extents">Extents.</param>
 		/// <param name="nearestPt">The neareast point.</param>
-		public void FindNearestPoly(ref Vector3 center, ref Vector3 extents, out NavPoint nearestPt)
+		public bool FindNearestPoly(ref Vector3 center, ref Vector3 extents, out NavPoint nearestPt)
 		{
 			nearestPt = NavPoint.Null;
 
@@ -2245,7 +2245,7 @@ namespace SharpNav
 			// Get nearby polygons from proximity grid.
 			List<NavPolyId> polys = new List<NavPolyId>(128);
 			if (!QueryPolygons(ref center, ref extents, polys))
-				throw new InvalidOperationException("no nearby polys?");
+				return false;
 
 			float nearestDistanceSqr = float.MaxValue;
 			for (int i = 0; i < polys.Count; i++) 
@@ -2278,6 +2278,8 @@ namespace SharpNav
 					nearestPt = new NavPoint(reference, closestPtPoly);
 				}
 			}
+
+            return true;
 		}
 
 		/// <summary>

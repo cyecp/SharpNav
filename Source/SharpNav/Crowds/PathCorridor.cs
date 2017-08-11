@@ -129,7 +129,7 @@ namespace SharpNav.Crowds
 
 		public void FindCorners(StraightPath corners, NavMeshQuery navquery)
 		{
-			const float MinTargetDist = 0.01f;
+			const float MinTargetDistSqr = 0.01f * 0.01f;
 
 			navquery.FindStraightPath(pos, target, path, corners, 0);
 
@@ -137,7 +137,7 @@ namespace SharpNav.Crowds
 			while (corners.Count > 0)
 			{
 				if (((corners[0].Flags & StraightPathFlags.OffMeshConnection) != 0) ||
-					Vector3Extensions.Distance2D(corners[0].Point.Position, pos) > MinTargetDist)
+					Vector3Extensions.DistanceSqr2D(corners[0].Point.Position, pos) > MinTargetDistSqr)
 					break;
 
 				corners.RemoveAt(0);
