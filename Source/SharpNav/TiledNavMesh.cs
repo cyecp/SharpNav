@@ -9,6 +9,7 @@ using SharpNav.Collections;
 using SharpNav.Geometry;
 using SharpNav.Pathfinding;
 using System.Collections.ObjectModel;
+using Microsoft.Win32.SafeHandles;
 
 #if MONOGAME
 using Vector3 = Microsoft.Xna.Framework.Vector3;
@@ -42,7 +43,8 @@ namespace SharpNav
 		//lookup ref by tile
 		private Dictionary<Vector2i, List<NavTile>> tileSet;
 		private Dictionary<NavTile, NavPolyId> tileRefs;
-		private List<NavTile> tileList;
+		private Dictionary<int, NavTile> tileIndices;
+        private int totalSpawnedTiles = 0;
 
 		internal NavPolyIdManager idManager;
 
@@ -61,7 +63,7 @@ namespace SharpNav
 			//init tiles
 			tileSet = new Dictionary<Vector2i, List<NavTile>>();
 			tileRefs = new Dictionary<NavTile, NavPolyId>();
-			tileList = new List<NavTile>();
+		    tileIndices = new Dictionary<int, NavTile>();
 
 			//init ID generator values
 			int tileBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxTileBits));
@@ -90,8 +92,8 @@ namespace SharpNav
 			//init tiles
 			tileSet = new Dictionary<Vector2i, List<NavTile>>();
 			tileRefs = new Dictionary<NavTile, NavPolyId>();
-			tileList = new List<NavTile>();
-            
+		    tileIndices = new Dictionary<int, NavTile>();
+
 			//init ID generator values
 			int tileBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxTileBits));
 			int polyBits = MathHelper.Log2(MathHelper.NextPowerOfTwo(kMaxPolyBits));
@@ -123,7 +125,7 @@ namespace SharpNav
 		{
 			get
 			{
-				return tileList.Count;
+				return tileIndices.Count;
 			}
 		}
 
@@ -160,7 +162,11 @@ namespace SharpNav
 		{
 			get
 			{
-				return tileList[reference];
+                NavTile tile;
+                if (tileIndices.TryGetValue(reference, out tile)) {
+                    return tile;
+                }
+                return null;
 			}
 		}
 
@@ -173,11 +179,11 @@ namespace SharpNav
 			}
 		}
 
-		public ReadOnlyCollection<NavTile> Tiles
+		public Dictionary<int, NavTile>.ValueCollection Tiles
 		{
 			get
 			{
-				return new ReadOnlyCollection<NavTile>(tileList);
+                return tileIndices.Values;
 			}
 		}
 
@@ -185,6 +191,36 @@ namespace SharpNav
 		/// Gets or sets user data for this navmesh.
 		/// </summary>
 		public object Tag { get; set; }
+
+        public bool RemoveTile(NavTile tile)
+        {
+            List<NavTile> tiles;
+            if (tileSet.TryGetValue(tile.Location, out tiles)) {
+                tiles.Remove(tile);
+            }else {
+                return false;
+            }
+
+            foreach (NavTile neighbourTile in GetTilesAt(tile.Location)) {
+                if (tile != neighbourTile) {
+                    UnconnectLinks(neighbourTile, tile);
+                }
+            }
+
+            for (int n = 0; n < 8; ++n) {
+                foreach (NavTile neighbourTile in GetNeighborTilesAt(tile.Location, (BoundarySide)n)) {
+                    UnconnectLinks(neighbourTile, tile);
+                }
+            }
+
+            NavPolyId id = tileRefs[tile];
+            int index = idManager.DecodeTileIndex(ref id);
+            tileIndices.Remove(index);
+
+            tileRefs.Remove(tile);
+
+            return true;
+        }
 
 		public void AddTileAt(NavTile tile, NavPolyId id)
 		{
@@ -209,13 +245,9 @@ namespace SharpNav
 			tileRefs.Add(tile, id);
 
 			int index = idManager.DecodeTileIndex(ref id);
+            tileIndices.Add(index, tile);
 
-			//HACK this is pretty bad but only way to insert at index
-			//TODO tileIndex should have a level of indirection from the list?
-			while (index >= tileList.Count)
-				tileList.Add(null);
-
-			tileList[index] = tile;
+            ++totalSpawnedTiles;
 		}
 
 		/// <summary>
@@ -299,7 +331,7 @@ namespace SharpNav
 		{
 			//Salt is 1 for first version. As tiles get edited, change salt.
 			//Salt can't be 0, otherwise the first poly of tile 0 is incorrectly seen as PolyId.Null.
-			return idManager.Encode(1, tileList.Count, 0);
+			return idManager.Encode(1, totalSpawnedTiles + 1, 0);
 		}
 
 		/// <summary>
@@ -312,21 +344,12 @@ namespace SharpNav
 		/// <returns>True if endpoints found, false if not</returns>
 		public bool GetOffMeshConnectionPolyEndPoints(NavPolyId prevRef, NavPolyId polyRef, ref Vector3 startPos, ref Vector3 endPos)
 		{
-			int salt = 0, indexTile = 0, indexPoly = 0;
+			NavTile tile;
+            NavPoly poly;
 
-			if (polyRef == NavPolyId.Null)
-				return false;
-
-			//get current polygon
-			idManager.Decode(ref polyRef, out indexPoly, out indexTile, out salt);
-			if (indexTile >= maxTiles)
-				return false;
-			if (tileList[indexTile].Salt != salt)
-				return false;
-			NavTile tile = tileList[indexTile];
-			if (indexPoly >= tile.PolyCount)
-				return false;
-			NavPoly poly = tile.Polys[indexPoly];
+		    if (TryGetTileAndPolyByRef(polyRef, out tile, out poly)) {
+                return false;
+            }
 
 			if (poly.PolyType != NavPolyType.OffMeshConnection)
 				return false;
@@ -353,6 +376,28 @@ namespace SharpNav
 
 			return true;
 		}
+
+	    private void UnconnectLinks(NavTile tile, NavTile target)
+        {
+	        if (tile == null || target == null) {
+	            return;
+	        }
+
+	        foreach (NavPoly poly in tile.Polys) {
+	            for (int n = 0; n < poly.Links.Count; ++n) {
+	                Link link = poly.Links[n];
+	                NavTile linkTile;
+	                NavPoly linkPoly;
+
+	                TryGetTileAndPolyByRefUnsafe(link.Reference, out linkTile, out linkPoly);
+
+	                if (linkTile == target) {
+	                    poly.Links.RemoveAt(n);
+	                    --n;
+	                }
+	            }
+	        }
+	    }
 
 		/// <summary>
 		/// Get the tile reference
@@ -500,16 +545,21 @@ namespace SharpNav
 			//Make sure indices are valid
 			if (tileIndex >= maxTiles)
 				return false;
+            
+		    NavTile foundTile;
+		    if (!tileIndices.TryGetValue(tileIndex, out foundTile)) {
+		        return false;
+		    }
 
-			if (tileList[tileIndex].Salt != salt)
-				return false;
+		    if (foundTile.Salt != salt)
+		        return false;
 
-			if (polyIndex >= tileList[tileIndex].PolyCount)
-				return false;
+		    if (polyIndex >= foundTile.PolyCount)
+		        return false;
 
 			//Retrieve tile and poly
-			tile = tileList[tileIndex];
-			poly = tileList[tileIndex].Polys[polyIndex];
+			tile = tileIndices[tileIndex];
+			poly = tileIndices[tileIndex].Polys[polyIndex];
 			return true;
 		}
 
@@ -523,8 +573,8 @@ namespace SharpNav
 		{
 			int salt, polyIndex, tileIndex;
 			idManager.Decode(ref reference, out polyIndex, out tileIndex, out salt);
-			tile = tileList[tileIndex];
-			poly = tileList[tileIndex].Polys[polyIndex];
+			tile = tileIndices[tileIndex];
+			poly = tileIndices[tileIndex].Polys[polyIndex];
 		}
 
 		/// <summary>
@@ -543,10 +593,15 @@ namespace SharpNav
 			if (tileIndex >= maxTiles)
 				return false;
 
-			if (tileList[tileIndex].Salt != salt)
+            NavTile foundTile;
+            if (!tileIndices.TryGetValue(tileIndex, out foundTile)) {
+                return false;
+            }
+
+			if (foundTile.Salt != salt)
 				return false;
 
-			if (polyIndex >= tileList[tileIndex].PolyCount)
+			if (polyIndex >= foundTile.PolyCount)
 				return false;
 
 			return true;
